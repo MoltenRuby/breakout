@@ -10,3 +10,6 @@ Yahoo-ticker-downloader
 Pyarrow
 more-itertools
 tqdm
+requests-cache
+requests-ratelimiter
+pyrate-limiter
