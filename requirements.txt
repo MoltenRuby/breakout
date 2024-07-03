@@ -1,0 +1,12 @@
+get-all-tickers
+numpy
+pandas
+requests
+yfinance
+matplotlib
+plotly
+scipy
+Yahoo-ticker-downloader
+Pyarrow
+more-itertools
+tqdm
