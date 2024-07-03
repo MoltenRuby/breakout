@@ -1,6 +1,7 @@
 # FROM https://github.com/shilewenuw/get_all_tickers/issues/15#issuecomment-830668105
 import os
 from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 import requests
@@ -38,8 +39,14 @@ params = (
 )
 
 def save_data(df, filename):
-    os.makedirs(Path(filename).parent)
-    df.to_csv(filename, header=False, index=False)
+    os.makedirs(Path(filename).parent, exist_ok=True)
+    df.to_csv(filename, header=True, index=False)
+
+
+def get_data_from_repository(filename: Optional[str] = None):
+    filename = filename or get_output_path() / 'screener.csv'
+    return pd.read_csv(filename)
+
 
 def fetch_data_df():
     r = requests.get('https://api.nasdaq.com/api/screener/stocks', headers=headers, params=params)
@@ -52,11 +59,19 @@ def convert_string_price_to_float(value: str):
     return float(value.replace('$', ''))
 
 
-def main():
+def fetch_and_clean_data():
     df = fetch_data_df()
     df['lastsale'] = df['lastsale'].apply(convert_string_price_to_float)
+    return df
+
+
+def main():
+    df = fetch_and_clean_data()
     output = get_output_path() / 'screener.csv'
     save_data(df, output)
+    read_back = get_data_from_repository(output)
+    pass
+
 
 if __name__ == '__main__':
     main()
