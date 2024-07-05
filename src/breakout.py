@@ -1,4 +1,6 @@
 import screener as scr
+import src.filerepository
+from src.filerepository import save_data
 from filerepository import get_output_path
 
 import yfinance as yf
@@ -14,7 +16,7 @@ class CachedLimiterSession(CacheMixin, LimiterMixin, Session):
 
 class Screener:
     def __init__(self):
-        self.df = scr.get_data_from_repository()
+        self.df = src.filerepository.get_data_from_repository()
         self.df = self.df.dropna(subset=['symbol'])
 
     @property
@@ -32,8 +34,10 @@ def main():
     )
 
     tickers = yf.Tickers(screener.tickers, session=session)
+    # TODO: remove ETF and indexes
     #tickers.tickers['AAPL'].info
-    pass
+    data = tickers.download(period='1y')
+    save_data(data, 'yfinance_download')
 
 
 if __name__ == '__main__':

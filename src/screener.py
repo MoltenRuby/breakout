@@ -1,12 +1,10 @@
 # FROM https://github.com/shilewenuw/get_all_tickers/issues/15#issuecomment-830668105
-import os
-from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 import requests
 
 from filerepository import get_output_path
+from src.filerepository import save_data, get_data_from_repository
 
 _EXCHANGE_LIST = ['nyse', 'nasdaq', 'amex']
 
@@ -37,15 +35,6 @@ params = (
     ('offset', '0'),
     ('download', 'true'),
 )
-
-def save_data(df, filename):
-    os.makedirs(Path(filename).parent, exist_ok=True)
-    df.to_csv(filename, header=True, index=False)
-
-
-def get_data_from_repository(filename: Optional[str] = None):
-    filename = filename or get_output_path() / 'screener.csv'
-    return pd.read_csv(filename)
 
 
 def fetch_data_df():
