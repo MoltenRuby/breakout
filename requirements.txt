@@ -13,3 +13,4 @@ tqdm
 requests-cache
 requests-ratelimiter
 pyrate-limiter
+tables
