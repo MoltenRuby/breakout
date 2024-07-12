@@ -4,14 +4,17 @@ from typing import Any
 import pickle
 
 import pandas as pd
+from datetime import timedelta
 
 import screener as scr
+from src.progress import tqdm_with_current
 from throttle import Throttle
 import src.filerepository
 from src.filerepository import save_data
-from filerepository import get_output_path
+from filerepository import get_output_path, get_and_create_output_path
 
 import yfinance as yf
+import numpy as np
 from requests import Session
 from requests_cache import CacheMixin, SQLiteCache
 from requests_ratelimiter import LimiterMixin, MemoryQueueBucket
@@ -132,6 +135,7 @@ def sort_biggest_winners():
     delta_df = delta_df.loc[delta_df['delta'] > 1.5]
     return delta_df
 
+
 def download_grades(symbols):
     throttle = Throttle(1.5e3)
 
@@ -150,17 +154,22 @@ def iter_grade_pickles():
 def get_symbol_meta_data(symbol: str):
     ticker = yf.ticker.Ticker(symbol)
     info = ticker.info
-    from datetime import timedelta
-    date = ticker.quarterly_income_stmt.columns[0]
-    total_shares = ticker.quarterly_income_stmt[date]['Basic Average Shares']
-    stock_price = ticker.history(start=date, end=date + timedelta(1))['High']
-    market_cap = stock_price * total_shares
+    market_cap = float('NaN')
 
-    return {
-        'industry_key': info.get('industryKey'),
-        'sector_key': info.get('sectorKey'),
-        'market_cap': market_cap,
-    }
+    try:
+        date = ticker.quarterly_income_stmt.columns[0]
+        total_shares = ticker.quarterly_income_stmt[date]['Basic Average Shares']
+        stock_price = np.max(ticker.history(start=date - timedelta(30), end=date)['High'])
+        market_cap = stock_price * total_shares
+
+    except Exception as e:
+        print(f'Cant compute market cap for {symbol} with exeption {e}')
+
+        return {
+            'industry_key': info.get('industryKey'),
+            'sector_key': info.get('sectorKey'),
+            'market_cap': market_cap,
+        }
 
 
 def main():
@@ -194,7 +203,11 @@ def main():
     for order, ascending in reversed(sort_order):
         all_grade_df = all_grade_df.sort_values(by=order, ascending=ascending, kind='mergesort')
 
-    get_symbol_meta_data('ALAR')
+    symbols_metadata_folder = get_and_create_output_path('symbols_metadata')
+    symbols_metadata = [get_symbol_meta_data(symbol) for symbol in tqdm_with_current(all_grade_df['symbol'].values)]
+    with open(symbols_metadata_folder / 'symbols.pickle', 'wb') as file:
+        pickle.dump(symbols_metadata, file)
+
     print(all_grade_df.to_string())
 
 
