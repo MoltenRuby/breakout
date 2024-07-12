@@ -153,23 +153,7 @@ def iter_grade_pickles():
 
 def get_symbol_meta_data(symbol: str):
     ticker = yf.ticker.Ticker(symbol)
-    info = ticker.info
-    market_cap = float('NaN')
-
-    try:
-        date = ticker.quarterly_income_stmt.columns[0]
-        total_shares = ticker.quarterly_income_stmt[date]['Basic Average Shares']
-        stock_price = np.max(ticker.history(start=date - timedelta(30), end=date)['High'])
-        market_cap = stock_price * total_shares
-
-    except Exception as e:
-        print(f'Cant compute market cap for {symbol} with exeption {e}')
-
-        return {
-            'industry_key': info.get('industryKey'),
-            'sector_key': info.get('sectorKey'),
-            'market_cap': market_cap,
-        }
+    return ticker.info
 
 
 def main():
@@ -207,6 +191,10 @@ def main():
     symbols_metadata = [get_symbol_meta_data(symbol) for symbol in tqdm_with_current(all_grade_df['symbol'].values)]
     with open(symbols_metadata_folder / 'symbols.pickle', 'wb') as file:
         pickle.dump(symbols_metadata, file)
+
+    # with open(symbols_metadata_folder / 'symbols.pickle', 'rb') as file:
+    #     symbols_metadata = pickle.load(file)
+    meta_df = pd.DataFrame(symbols_metadata)
 
     print(all_grade_df.to_string())
 
