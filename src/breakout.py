@@ -1,9 +1,12 @@
+from functools import partial
 from pathlib import Path
 from typing import Any
+import pickle
 
 import pandas as pd
 
 import screener as scr
+from throttle import Throttle
 import src.filerepository
 from src.filerepository import save_data
 from filerepository import get_output_path
@@ -16,6 +19,7 @@ from pyrate_limiter import Duration, RequestRate, Limiter
 from more_itertools import grouper
 from dataclasses import dataclass
 from datetime import datetime
+import secretsauce
 from more_itertools import take
 
 # keys = {'Low', 'Open', 'Stock Splits', 'High', 'Adj Close', 'Close', 'Dividends', 'Volume'}
@@ -109,12 +113,7 @@ def get_low_and_highs():
                     value=highs[highs.idxmin(axis=0)]),
                 )
 
-
-def main():
-    # download_data()
-    # for chunk in iter_chunks():
-    #     print(chunk)
-
+def sort_biggest_winners():
     symbols = []
     deltas = []
     for high_low in get_low_and_highs():
@@ -126,16 +125,77 @@ def main():
         deltas.append(delta)
 
     delta_df = pd.DataFrame({
-        'Symbol': symbols,
-        'Delta': deltas
-    }).sort_values('Delta', ascending=False)
+        'symbol': symbols,
+        'delta': deltas
+    }).sort_values('delta', ascending=False)
 
-    for symbol in take(50, delta_df['Symbol'].values):
-        print(symbol)
+    delta_df = delta_df.loc[delta_df['delta'] > 1.5]
+    return delta_df
 
+def download_grades(symbols):
+    throttle = Throttle(1.5e3)
+
+    commands = [partial(secretsauce.get_report_card, chunk)
+                for chunk in grouper(symbols, 100)]
+
+    for index, result in enumerate(throttle.execute_all(commands)):
+        with open(get_output_path() / f'{index:03}report_cards.pickle', 'wb') as file:
+            pickle.dump(result, file)
+
+
+def iter_grade_pickles():
+    yield from (file for file in Path(get_output_path()).glob('*report_cards.pickle') if file.is_file())
+
+
+def get_symbol_meta_data(symbol: str):
+    ticker = yf.ticker.Ticker(symbol)
+    info = ticker.info
+    from datetime import timedelta
+    date = ticker.quarterly_income_stmt.columns[0]
+    total_shares = ticker.quarterly_income_stmt[date]['Basic Average Shares']
+    stock_price = ticker.history(start=date, end=date + timedelta(1))['High']
+    market_cap = stock_price * total_shares
+
+    return {
+        'industry_key': info.get('industryKey'),
+        'sector_key': info.get('sectorKey'),
+        'market_cap': market_cap,
+    }
+
+
+def main():
+    # download_data()
+    # for chunk in iter_chunks():
+    #     print(chunk)
+
+
+###########
+    # delta_df = sort_biggest_winners()
+    with open(get_output_path() / 'delta_df.pickle', 'rb') as file:
+        delta_df = pickle.load(file)
+    delta_df = delta_df.rename(columns={'Symbol': 'symbol', 'Delta': 'delta'})
     # selected_tickers = delta_df.loc[delta_df['Symbol'].isin(['MSFT'])]
+###################
+
+    # download_grades(delta_df['Symbol'].dropna().values)
+
+    all_grades = []
+    for grade_file in iter_grade_pickles():
+        with open(grade_file, 'rb') as file:
+            all_grades.append(pickle.load(file))
 
 
+    all_grades = [item for items in all_grades for item in items]
+    all_grade_df = pd.DataFrame(all_grades)
+
+    all_grade_df = pd.merge(all_grade_df, delta_df, on='symbol', how='outer').dropna()
+
+    sort_order = [('total_grade', True), ('quant_grade', True), ('fund_grade', True), ('delta', False)]
+    for order, ascending in reversed(sort_order):
+        all_grade_df = all_grade_df.sort_values(by=order, ascending=ascending, kind='mergesort')
+
+    get_symbol_meta_data('ALAR')
+    print(all_grade_df.to_string())
 
 
 
