@@ -156,6 +156,19 @@ def get_symbol_meta_data(symbol: str):
     return ticker.info
 
 
+def split_industry_keys(keys: str):
+    try:
+        yield from keys.split('-')
+    except Exception as e:
+        print(f'Could not split industry key due to {e} for keys {keys}')
+
+
+def is_industry_of_interest(industry_key: str) -> bool:
+    industries_of_interest = {'electronic', 'health', 'development', 'scientific', 'computer', 'components', 'pharmaceutical', 'biotechnology', 'information', 'semiconductor', 'technology', 'internet', 'logistics', 'semiconductors' }
+
+    return bool(set(industry_key.split('-')) and industries_of_interest)
+
+
 def main():
     # download_data()
     # for chunk in iter_chunks():
@@ -188,13 +201,21 @@ def main():
         all_grade_df = all_grade_df.sort_values(by=order, ascending=ascending, kind='mergesort')
 
     symbols_metadata_folder = get_and_create_output_path('symbols_metadata')
-    symbols_metadata = [get_symbol_meta_data(symbol) for symbol in tqdm_with_current(all_grade_df['symbol'].values)]
-    with open(symbols_metadata_folder / 'symbols.pickle', 'wb') as file:
-        pickle.dump(symbols_metadata, file)
+    # symbols_metadata = [get_symbol_meta_data(symbol) for symbol in tqdm_with_current(all_grade_df['symbol'].values)]
+    # with open(symbols_metadata_folder / 'symbols.pickle', 'wb') as file:
+    #     pickle.dump(symbols_metadata, file)
 
-    # with open(symbols_metadata_folder / 'symbols.pickle', 'rb') as file:
-    #     symbols_metadata = pickle.load(file)
+    with open(symbols_metadata_folder / 'symbols.pickle', 'rb') as file:
+        symbols_metadata = pickle.load(file)
     meta_df = pd.DataFrame(symbols_metadata)
+
+    print(meta_df[['symbol', 'industry', 'industryKey', 'industryDisp', 'marketCap', 'sector', 'sectorKey', 'sectorDisp',
+                   'heldPercentInsiders', 'heldPercentInstitutions']].to_string())
+
+    all_industries = {industry_key for industry_keys in meta_df['industryKey'].dropna().values for industry_key in split_industry_keys(industry_keys)}
+
+    # meta_df[is_industry_of_interest(meta_df['industryKey'])]
+
 
     print(all_grade_df.to_string())
 
