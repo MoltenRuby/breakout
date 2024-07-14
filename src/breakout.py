@@ -209,15 +209,19 @@ def main():
         symbols_metadata = pickle.load(file)
     meta_df = pd.DataFrame(symbols_metadata)
 
-    print(meta_df[['symbol', 'industry', 'industryKey', 'industryDisp', 'marketCap', 'sector', 'sectorKey', 'sectorDisp',
-                   'heldPercentInsiders', 'heldPercentInstitutions']].to_string())
+    # print(meta_df[['symbol', 'industry', 'industryKey', 'industryDisp', 'marketCap', 'sector', 'sectorKey', 'sectorDisp',
+    #                'heldPercentInsiders', 'heldPercentInstitutions']].to_string())
 
     all_industries = {industry_key for industry_keys in meta_df['industryKey'].dropna().values for industry_key in split_industry_keys(industry_keys)}
 
+    all_grade_df = pd.merge(all_grade_df, meta_df, on='symbol', how='outer')
+
     # meta_df[is_industry_of_interest(meta_df['industryKey'])]
 
+    for order, ascending in reversed(sort_order):
+        all_grade_df = all_grade_df.sort_values(by=order, ascending=ascending, kind='mergesort')
 
-    print(all_grade_df.to_string())
+    print(all_grade_df[['symbol', 'total_grade', 'quant_grade', 'fund_grade', 'industryKey', 'marketCap', 'heldPercentInsiders', 'heldPercentInstitutions']].to_string())
 
 
 
